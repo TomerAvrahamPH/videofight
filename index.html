@@ -562,6 +562,19 @@ function drawFightBtns(){
   }
   ctx.restore();
 }
+function drawRotateHint(){
+  if(!(TOUCH && innerHeight>innerWidth)) return;
+  ctx.save();
+  ctx.setTransform(1,0,0,1,0,0);
+  ctx.fillStyle='rgba(8,6,14,.95)'; ctx.fillRect(0,0,W,H);
+  ctx.textAlign='center'; ctx.textBaseline='middle';
+  ctx.font='110px Arial'; ctx.fillText('📱', W/2, H/2-90);
+  ctx.font='900 56px -apple-system, Arial'; ctx.fillStyle='#ffd34d';
+  ctx.fillText('סובבו את הטלפון לרוחב', W/2, H/2+40);
+  ctx.font='600 26px -apple-system, Arial'; ctx.fillStyle='rgba(255,255,255,.75)';
+  ctx.fillText('ככה נלחמים 🥊', W/2, H/2+100);
+  ctx.restore();
+}
 function drawTopBtns(){
   for(const [r,ic] of [[PAUSE_BTN, paused?'▶':'⏸'],[MUTE_BTN, muted?'🔇':'🔊']]){
     ctx.fillStyle='rgba(0,0,0,.4)'; rr(ctx,r[0],r[1],r[2],r[3],12); ctx.fill();
@@ -1521,10 +1534,10 @@ function render(){
   ctx.save();
   if(shake>0.5) ctx.translate((Math.random()-0.5)*shake,(Math.random()-0.5)*shake);
 
-  if(state==='TITLE'){ drawTitle(); ctx.restore(); return; }
-  if(state==='MODE'){ drawMode(); ctx.restore(); return; }
-  if(state==='SELECT'){ drawSelect(); ctx.restore(); return; }
-  if(state==='VS'){ drawVS(); ctx.restore(); return; }
+  if(state==='TITLE'){ drawTitle(); drawRotateHint(); ctx.restore(); return; }
+  if(state==='MODE'){ drawMode(); drawRotateHint(); ctx.restore(); return; }
+  if(state==='SELECT'){ drawSelect(); drawRotateHint(); ctx.restore(); return; }
+  if(state==='VS'){ drawVS(); drawRotateHint(); ctx.restore(); return; }
 
   drawStage();
   // fighters (draw the one further back first by x order stability)
@@ -1634,16 +1647,7 @@ function render(){
     ctx.font='26px Arial'; ctx.textAlign='left'; ctx.textBaseline='top';
     ctx.fillText('🔇', 14, H-40);
   }
-  // rotate-your-phone overlay
-  if(TOUCH && innerHeight>innerWidth){
-    ctx.fillStyle='rgba(8,6,14,.95)'; ctx.fillRect(0,0,W,H);
-    ctx.textAlign='center'; ctx.textBaseline='middle';
-    ctx.font='110px Arial'; ctx.fillText('📱', W/2, H/2-90);
-    ctx.font='900 56px -apple-system, Arial'; ctx.fillStyle='#ffd34d';
-    ctx.fillText('סובבו את הטלפון לרוחב', W/2, H/2+40);
-    ctx.font='600 26px -apple-system, Arial'; ctx.fillStyle='rgba(255,255,255,.75)';
-    ctx.fillText('ככה נלחמים 🥊', W/2, H/2+100);
-  }
+  drawRotateHint();
 }
 
 /* ============================== main loop =============================== */
