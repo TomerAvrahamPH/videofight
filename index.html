@@ -113,6 +113,8 @@ const W = 1280, H = 720, FLOOR = 610;
 const HEADW = 300, HEADH = 360;
 const cv = document.getElementById('game');
 const ctx = cv.getContext('2d');
+const STUDIO_PLATE = new Image();
+STUDIO_PLATE.src = './assets/studio-arena-v1.png';
 try{ ctx.direction='rtl'; }catch(e){}
 
 window.onerror = function(msg, srcUrl, line){
@@ -1754,6 +1756,14 @@ function stageDef(id){ return STAGE_LIST.find(s=>s.id===id)||STAGE_LIST[0]; }
 
 /* ------------------------- the green screen set ------------------------- */
 function drawStudio(t){
+  if(STUDIO_PLATE.complete && STUDIO_PLATE.naturalWidth){
+    ctx.drawImage(STUDIO_PLATE,0,0,W,FLOOR);
+    const vignette=ctx.createRadialGradient(W/2,FLOOR*.42,150,W/2,FLOOR*.42,850);
+    vignette.addColorStop(0,'rgba(8,5,18,0)'); vignette.addColorStop(1,'rgba(8,4,18,.40)');
+    ctx.fillStyle=vignette; ctx.fillRect(0,0,W,FLOOR);
+    ctx.save(); ctx.globalAlpha=.32; drawStudioRig(t); ctx.restore();
+    return;
+  }
   const sky=ctx.createLinearGradient(0,0,0,FLOOR);
   sky.addColorStop(0,'#2a1548'); sky.addColorStop(0.55,'#5c2350'); sky.addColorStop(1,'#8a3a4e');
   ctx.fillStyle=sky; ctx.fillRect(0,0,W,FLOOR);
