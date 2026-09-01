@@ -7,10 +7,9 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="וידאו פייט">
+<link rel="manifest" href="./manifest.webmanifest">
+<link rel="icon" href="./icon.svg" type="image/svg+xml">
 <title>וידאו פייט</title>
-<link rel="manifest" href="manifest.webmanifest">
-<link rel="icon" type="image/png" href="icon-192.png">
-<link rel="apple-touch-icon" href="icon-180.png">
 <style>
   html,body{margin:0;padding:0;background:#07070d;height:100%;overflow:hidden;
     font-family:-apple-system,"Segoe UI",Arial,sans-serif;
@@ -90,6 +89,7 @@
         <div id="edBtnRow">
           <button class="edBtn" id="edExport">⬇️ ייצוא דמויות</button>
           <button class="edBtn" id="edImport">⬆️ ייבוא דמויות</button>
+          <button class="edBtn" id="edAdd">➕ הוסף דמות</button>
           <button class="edBtn primary" id="edClose">סגור וחזור למשחק</button>
         </div>
       </div>
@@ -101,6 +101,7 @@
 
 <script>
 'use strict';
+window.VIDEO_FIGHT_VERSION='2026.09.01.1';
 /* =========================================================================
    VIDEO FIGHT · וידאו פייט  —  the Sun Video crew beats each other up
    ========================================================================= */
@@ -136,7 +137,7 @@ function rr(g,x,y,w,h,r){ g.beginPath(); g.roundRect(x,y,w,h,r); }
 /* ============================== roster ================================== */
 /* Every fighter is a real member of the crew, with the martial art Tomer
    assigned and gear that matches what they actually do for a living.       */
-const ROSTER = [
+let ROSTER = [
   { id:1, name:'גאי', art:'ג׳ודו', style:'judo', role:'בעלים · לקוחות',
     voice:{f:150,rate:1.0}, spd:4.6, jump:19, dmg:1.0, weight:1.0,
     gear:{top:'gi', gi:'#eae6dc', gi2:'#cfc9bb', belt:'#141414', pants:'#eae6dc',
@@ -209,6 +210,11 @@ function saveStore(){
       const d=charData[c.id];
       out[c.id]={ name:d.name, cal:d.cal, photo:d.photoURL||null };
     }
+    out.custom=ROSTER.filter(c=>c.custom).map(c=>({
+      id:c.id,name:c.name,art:c.art,style:c.style,role:c.role,voice:c.voice,
+      sp1:c.sp1,sp2:c.sp2,sup:c.sup,gear:c.gear,spd:c.spd,jump:c.jump,dmg:c.dmg,weight:c.weight,
+      lines:c.lines,baseId:c.baseId||5
+    }));
     localStorage.setItem('vf_chars_v3', JSON.stringify(out));
   }catch(e){}
 }
@@ -3154,6 +3160,16 @@ document.getElementById('edReset').onclick=()=>{
   d.name=ROSTER.find(r=>r.id===edChar).name;
   buildHead(edChar); pickEdChar(edChar); saveStore();
 };
+document.getElementById('edAdd').onclick=()=>{
+  const base=ROSTER.find(c=>c.id===5);
+  const id=Math.max(0,...ROSTER.map(c=>c.id))+1;
+  const custom={...base,id,name:'דמות חדשה',art:'סגנון חופשי',role:'אורח/ת בסט',
+    sp1:'מכה מיוחדת',sp2:'מהלך שני',sup:'פינישר',custom:true,baseId:base.id,
+    gear:{...base.gear},voice:{...base.voice},lines:{intro:['רגע, אני נכנס/ת לפריים'],win:['זה נכנס לגרסה הסופית'],fin:['קאט!']}};
+  ROSTER.push(custom); SPECIALS[id]=SPECIALS[base.id];
+  charData[id]={name:custom.name,cal:defaultCal(),photo:null,photoURL:null};
+  buildHead(id); pickEdChar(id); saveStore();
+};
 fileInput.onchange=()=>{ if(fileInput.files[0]) loadPhotoFile(fileInput.files[0], edChar); fileInput.value=''; };
 
 function loadPhotoFile(file, id){
@@ -3222,6 +3238,7 @@ document.getElementById('edExport').onclick=()=>{
   const out={};
   for(const c of ROSTER){ const d=charData[c.id];
     out[c.id]={name:d.name, cal:d.cal, photo:d.photoURL||null}; }
+  out.custom=ROSTER.filter(c=>c.custom);
   const blob=new Blob([JSON.stringify(out)],{type:'application/json'});
   const a=document.createElement('a');
   a.href=URL.createObjectURL(blob); a.download='videofight-characters.json'; a.click();
@@ -3239,37 +3256,33 @@ importInput.onchange=()=>{
    PWA + BOOT
    ========================================================================= */
 try{
-  const mkIcon=(s)=>{
-    const c=document.createElement('canvas'); c.width=c.height=s;
-    const g=c.getContext('2d');
-    const gr=g.createLinearGradient(0,0,0,s);
-    gr.addColorStop(0,'#2a1548'); gr.addColorStop(0.6,'#8a2d5c'); gr.addColorStop(1,'#e8683a');
-    g.fillStyle=gr; g.fillRect(0,0,s,s);
-    g.font=Math.round(s*0.58)+'px Arial'; g.textAlign='center'; g.textBaseline='middle';
-    g.fillText('🥊', s/2, s*0.55);
-    return c.toDataURL('image/png');
-  };
-  if(!document.querySelector('link[rel="manifest"]')){
-    const man={ name:'וידאו פייט', short_name:'וידאו פייט', dir:'rtl', lang:'he',
-      start_url: location.href, display:'fullscreen', orientation:'landscape',
-      background_color:'#07070d', theme_color:'#07070d',
-      icons:[{src:mkIcon(192),sizes:'192x192',type:'image/png'},
-             {src:mkIcon(512),sizes:'512x512',type:'image/png'}] };
-    const l=document.createElement('link'); l.rel='manifest';
-    l.href=URL.createObjectURL(new Blob([JSON.stringify(man)],{type:'application/manifest+json'}));
-    document.head.appendChild(l);
-  }
   if('serviceWorker' in navigator && location.protocol==='https:'){
-    const had=!!navigator.serviceWorker.controller;
-    let done=false;
-    navigator.serviceWorker.addEventListener('controllerchange',()=>{
-      if(had&&!done){ done=true; location.reload(); }
-    });
-    navigator.serviceWorker.register('./sw.js').catch(()=>{});
+    let refreshWhenSafe=false;
+    const offerUpdate=()=>{
+      refreshWhenSafe=true;
+      if(['TITLE','MODE','DIFF','STAGE','SELECT','MATCH_END'].includes(state)){
+        announce('יש גרסה חדשה · רעננו כשנוח לכם');
+      }
+    };
+    navigator.serviceWorker.addEventListener('controllerchange',offerUpdate);
+    navigator.serviceWorker.register('./sw.js?v='+encodeURIComponent(window.VIDEO_FIGHT_VERSION))
+      .then(reg=>{ if(reg.waiting) offerUpdate(); reg.addEventListener('updatefound',()=>{
+        const worker=reg.installing;
+        if(worker) worker.addEventListener('statechange',()=>{ if(worker.state==='installed'&&navigator.serviceWorker.controller) offerUpdate(); });
+      }); }).catch(()=>{});
+    window.addEventListener('vf-safe-reload',()=>{ if(refreshWhenSafe) location.reload(); });
   }
 }catch(e){}
 
 function applyStore(st){
+  if(Array.isArray(st&&st.custom)){
+    for(const saved of st.custom){
+      if(!Number.isInteger(saved.id)||ROSTER.some(c=>c.id===saved.id)) continue;
+      const base=ROSTER.find(c=>c.id===saved.baseId)||ROSTER.find(c=>c.id===5);
+      const custom={...base,...saved,custom:true,gear:{...base.gear,...saved.gear},voice:{...base.voice,...saved.voice}};
+      ROSTER.push(custom); SPECIALS[custom.id]=SPECIALS[base.id];
+    }
+  }
   for(const c of ROSTER){
     const d=charData[c.id] || (charData[c.id]={});
     const s=(st&&st[c.id])||{};
