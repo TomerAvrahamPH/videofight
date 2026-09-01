@@ -119,6 +119,8 @@ const SPACE_PLATE = new Image();
 SPACE_PLATE.src = './assets/space-arena-v1.png';
 const BARBIE_PLATE = new Image();
 BARBIE_PLATE.src = './assets/barbie-arena-v1.png';
+const NINA_SPRITE = new Image();
+NINA_SPRITE.src = './assets/nina-charge-v1.png';
 try{ ctx.direction='rtl'; }catch(e){}
 
 window.onerror = function(msg, srcUrl, line){
@@ -959,6 +961,7 @@ let sel=[0,1], picked=[null,null];
 let round=1, wins=[0,0], roundTimer=99;
 let projectiles=[], fx=[], confetti=[];
 let shake=0, hitstop=0, freeze=0, paused=false, slowmo=0, impactFlash=0, impactTone='#ffffff';
+let camX=W/2, camY=H/2, camZoom=1;
 let keyIn=0, keyInDone=false;          // green-screen -> stage transition
 let finish={phase:0, t:0, winner:null, loser:null};
 let koPair=null;
@@ -1712,7 +1715,11 @@ function stepProjectiles(){
     } else if(p.type==='nina'){
       p.x+=p.vx; p.ph+=0.5;
       if(foe&&!p.hasHit&&Math.abs(foe.x-p.x)<70&&foe.y>FLOOR-140){
-        p.hasHit=true; sfx('bark'); hurt(p.dmg,{launch:true,kb:10});
+        p.hasHit=true; p.life=0; sfx('bark');
+        hurt(p.dmg,{launch:true,kb:14,stun:34,unblockable:true});
+        shake=Math.max(shake,18); hitstop=Math.max(hitstop,9); slowmo=Math.max(slowmo,16);
+        fx.push({t:'text',x:foe.x,y:foe.y-260,txt:'נינה!!!',col:'#ffd34d',size:46,life:52});
+        spark(foe.x,foe.y-84,'#ffd34d',24,4);
       }
     } else if(p.type==='banana'){
       if(p.warn>0) p.warn--;
@@ -2322,7 +2329,12 @@ function drawProjectiles(){
       }
     }
     else if(p.type==='nina'){
-      drawNina(ctx,p.x,FLOOR,Math.sign(p.vx),p.ph,1.15);
+      const dir=Math.sign(p.vx)||1;
+      if(NINA_SPRITE.complete&&NINA_SPRITE.naturalWidth){
+        ctx.save(); ctx.translate(p.x,FLOOR-8+Math.sin(p.ph)*5); ctx.scale(dir,1);
+        ctx.drawImage(NINA_SPRITE,-128,-156,256,156);
+        ctx.restore();
+      } else drawNina(ctx,p.x,FLOOR,dir,p.ph,1.15);
       ctx.font='800 20px -apple-system, Arial'; ctx.textAlign='center';
       ctx.fillStyle='#fff'; ctx.shadowColor='rgba(0,0,0,.7)'; ctx.shadowBlur=6;
       ctx.fillText('וואף!', p.x-Math.sign(p.vx)*54, FLOOR-118);
@@ -3029,6 +3041,17 @@ function render(){
   if(state==='VS'){ drawVS(); ctx.restore(); drawRotateHint(); return; }
   if(state==='KEYIN'){ drawKeyIn(); ctx.restore(); drawRotateHint(); return; }
 
+  const inMatch=['ROUND_INTRO','FIGHT','ROUND_END','FINISH','MATCH_END'].includes(state);
+  if(inMatch&&fighters[0]&&fighters[1]){
+    const [a,b]=fighters, distance=Math.abs(a.x-b.x);
+    const focusX=clamp((a.x+b.x)/2, W*.36, W*.64);
+    const focusY=clamp((a.y+b.y)/2-42, H*.40, H*.54);
+    const impactBoost=hitstop>0||slowmo>0?0.035:0;
+    const targetZoom=clamp(1.13-distance/2700+impactBoost,1.025,1.15);
+    camX=lerp(camX,focusX,0.12); camY=lerp(camY,focusY,0.12); camZoom=lerp(camZoom,targetZoom,0.10);
+  } else { camX=lerp(camX,W/2,0.12); camY=lerp(camY,H/2,0.12); camZoom=lerp(camZoom,1,0.10); }
+  ctx.save();
+  ctx.translate(W/2,H/2); ctx.scale(camZoom,camZoom); ctx.translate(-camX,-camY);
   drawStage();
   if(fighters[0]&&fighters[1]){
     const order = fighters[0].y<=fighters[1].y ? [0,1] : [1,0];
@@ -3036,6 +3059,7 @@ function render(){
   }
   drawProjectiles();
   drawFX();
+  ctx.restore();
   if(state!=='FINISH') drawHUD();
   drawTopBtns();
   if(TOUCH && state==='FIGHT' && !paused) drawPads();
