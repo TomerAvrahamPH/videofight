@@ -119,6 +119,10 @@ const SPACE_PLATE = new Image();
 SPACE_PLATE.src = './assets/space-arena-v1.png';
 const BARBIE_PLATE = new Image();
 BARBIE_PLATE.src = './assets/barbie-arena-v1.png';
+const PREMIUM_BODIES = {};
+for(const [id,src] of [[1,'./assets/fighters/guy-idle-v1.png'],[5,'./assets/fighters/tomer-idle-v1.png']]){
+  const image=new Image(); image.src=src; PREMIUM_BODIES[id]=image;
+}
 try{ ctx.direction='rtl'; }catch(e){}
 
 window.onerror = function(msg, srcUrl, line){
@@ -555,12 +559,27 @@ function limb(g,x0,y0,x1,y1,w0,w1,col,edge){
 }
 
 /* ============================ draw a fighter ============================ */
+function drawPremiumIdleBody(g,f,p){
+  const image=PREMIUM_BODIES[f.char.id];
+  if(!image||!image.complete||!image.naturalWidth||f.move||f.anim!=='idle') return false;
+  const bob=Math.sin(f.animT/17)*2;
+  const width=f.char.id===1?328:342, height=f.char.id===1?382:390;
+  g.save();
+  g.globalAlpha=f.hitstun>0&&Math.floor(performance.now()/50)%2===0?0.72:1;
+  g.drawImage(image,-width/2,-height+bob,width,height);
+  g.save(); g.translate(0,-238+bob); drawHeadSplit(g,f,0.40);
+  drawHeadGear(g,f,{bulk:1}); g.restore();
+  g.restore();
+  f._hands={front:[56,-190+bob],back:[-56,-190+bob],foot:[42,-8+bob],chest:[0,-220+bob],pel:[0,-132+bob]};
+  return true;
+}
 function drawBody(g, f, p){
   const M=metrics(f), G=f.char.gear;
   const shade='rgba(0,0,0,.22)';
   g.save();
   g.translate(p.px, p.py + p.sq*10);
   if(p.rot) { g.translate(0, M.pelvisY); g.rotate(p.rot*Math.PI/180); g.translate(0,-M.pelvisY); }
+  if(drawPremiumIdleBody(g,f,p)){ g.restore(); return; }
 
   const pel=[0, M.pelvisY + p.sq*16];
   const chest=joint(pel[0],pel[1], 180-p.lean, M.torso);   // up = 180deg
