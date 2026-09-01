@@ -534,8 +534,17 @@ const TRACKS = {
     lead:['E5','D5','B4','E5','G5','E5','D5','B4','A4','B4','D5','B4','E5',_,'B4',_],
     drum:['k','h','s','h','k','k','s','h','k','h','s','h','k','s','k','s'] },
 };
-const MUSIC = { name:null, timer:null, step:0, nextT:0 };
+let musicOn=false;
+try{ musicOn = localStorage.getItem('vf_music')==='1'; }catch(e){}
+function toggleMusic(){
+  musicOn=!musicOn;
+  try{ localStorage.setItem('vf_music', musicOn?'1':'0'); }catch(e){}
+  if(!musicOn) musicStop();
+}
+const MUSIC = { name:null, timer:null, step:0, nextT:0, want:null };
 function musicPlay(name){
+  MUSIC.want=name;
+  if(!musicOn){ if(MUSIC.name) musicStop(); return; }
   const ac=audio();
   if(!ac || MUSIC.name===name) return;
   musicStop();
@@ -1451,11 +1460,15 @@ function R_MODE_ALL(){
 }
 const R_BACK=[24,22,116,52];
 const PAUSE_BTN=[W/2-128,10,52,52], MUTE_BTN=[W/2+76,10,52,52];
+const MUSIC_BTN=[W/2+140,10,52,52];
 const MB_REMATCH=[W/2-330,624,300,58], MB_CHANGE=[W/2+30,624,300,58];
 const ED_BTN=[W/2-250,H-58,500,44];
 const SEL_GRID={cols:3,cw:206,ch:236,gx:298,gy:126,gapx:30,gapy:20};
 
 function handleTap(p,id){
+  if(inRect(p,MUSIC_BTN)&&state!=='KEYIN'){ toggleMusic();
+    if(musicOn&&MUSIC.want) musicPlay(MUSIC.want); sfx('select'); return; }
+  if(inRect(p,MUTE_BTN)&&['TITLE','MODE','STAGE','SELECT','DIFF'].includes(state)){ muted=!muted; return; }
   if(state==='TITLE'){ setState('MODE'); sfx('confirm'); return; }
   if(state==='NETSEARCH'){ closeNetUI(); netTeardown(false); setState('MODE'); sfx('select'); return; }
   if(state==='MODE'){
@@ -1536,6 +1549,7 @@ function onKeyPress(code){
     return;
   }
   if(code==='KeyM'){ muted=!muted; syncAudioDebug(); return; }
+  if(code==='KeyN'){ toggleMusic(); if(musicOn&&MUSIC.want) musicPlay(MUSIC.want); return; }
   if(code==='KeyP'&&state==='FIGHT'){ if(NET.on){ fx.push({t:'text',x:W/2,y:200,txt:'אין הפסקות אונליין',col:'#fff',size:26,life:40}); return; } paused=!paused; return; }
   if(state==='TITLE'){ setState('MODE'); sfx('confirm'); return; }
   if(state==='MODE'){
@@ -3118,6 +3132,16 @@ function drawTopBtns(){
     ctx.font='24px Arial'; ctx.textAlign='center'; ctx.textBaseline='middle';
     ctx.fillStyle='#fff'; ctx.fillText(ic, r[0]+r[2]/2, r[1]+r[3]/2+1);
   }
+  const r=MUSIC_BTN;
+  ctx.fillStyle='rgba(0,0,0,.42)'; rr(ctx,r[0],r[1],r[2],r[3],12); ctx.fill();
+  const cx=r[0]+r[2]/2, cy=r[1]+r[3]/2;
+  ctx.strokeStyle=musicOn?'#7ef2a0':'rgba(255,255,255,.55)';
+  ctx.fillStyle=ctx.strokeStyle; ctx.lineWidth=3.5; ctx.lineCap='round';
+  ctx.beginPath(); ctx.ellipse(cx-7,cy+9,6,4.5,-0.3,0,7); ctx.fill();
+  ctx.beginPath(); ctx.moveTo(cx-1,cy+8); ctx.lineTo(cx-1,cy-10);
+  ctx.quadraticCurveTo(cx+4,cy-13,cx+10,cy-9); ctx.stroke();
+  if(!musicOn){ ctx.strokeStyle='#ff6a5a'; ctx.lineWidth=3;
+    ctx.beginPath(); ctx.moveTo(cx-14,cy+14); ctx.lineTo(cx+14,cy-14); ctx.stroke(); }
 }
 function padIcon(g,code,cx,cy,r,col){
   g.save(); g.translate(cx,cy);
@@ -3850,8 +3874,8 @@ function render(){
   ctx.save();
   if(shake>0.5) ctx.translate((Math.random()-0.5)*shake,(Math.random()-0.5)*shake);
 
-  if(state==='TITLE'){ drawTitle(); ctx.restore(); drawRotateHint(); return; }
-  if(state==='MODE'){ drawMode(); ctx.restore(); drawRotateHint(); return; }
+  if(state==='TITLE'){ drawTitle(); drawTopBtns(); ctx.restore(); drawRotateHint(); return; }
+  if(state==='MODE'){ drawMode(); drawTopBtns(); ctx.restore(); drawRotateHint(); return; }
   if(state==='NETSETUP'||state==='NETSEARCH'){ drawNetScreen(); ctx.restore(); drawRotateHint(); return; }
   if(state==='DIFF'){ drawDiff(); ctx.restore(); drawRotateHint(); return; }
   if(state==='STAGE'){ drawStageSelect(); ctx.restore(); drawRotateHint(); return; }

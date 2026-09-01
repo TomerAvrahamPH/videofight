@@ -1,4 +1,4 @@
-const C='vf-1788262924';
+const C='vf-1788263115';
 const CORE=['./','./index.html','./manifest.webmanifest','./icon-192.png','./icon-512.png','./icon-180.png','./peer.min.js'];
 self.addEventListener('install',e=>{ self.skipWaiting();
   e.waitUntil(caches.open(C).then(c=>c.addAll(CORE)));});
