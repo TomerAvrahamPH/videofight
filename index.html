@@ -2830,6 +2830,12 @@ function drawTitle(){
   ctx.font='600 17px -apple-system, Arial'; ctx.fillStyle='rgba(255,255,255,.6)';
   ctx.textAlign='center';
   ctx.fillText('צוות סאן וידאו · שישה לוחמים · שש אומנויות לחימה · ראש שנפתח לשניים', W/2, 650);
+  if(NINA_SPRITE.complete&&NINA_SPRITE.naturalWidth){
+    ctx.save(); ctx.translate(W/2,680); ctx.scale(-1,1);
+    ctx.drawImage(NINA_SPRITE,-66,-74,132,80); ctx.restore();
+  } else drawNina(ctx,W/2,684,-1,t/260,0.56);
+  ctx.font='800 14px -apple-system, Arial'; ctx.fillStyle='#ffd34d';
+  ctx.fillText('נינה על הסט', W/2,704);
 }
 function drawMode(){
   drawStudio(performance.now()); drawStageFloor();
