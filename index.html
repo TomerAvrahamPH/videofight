@@ -115,6 +115,8 @@ const cv = document.getElementById('game');
 const ctx = cv.getContext('2d');
 const STUDIO_PLATE = new Image();
 STUDIO_PLATE.src = './assets/studio-arena-v1.png';
+const SPACE_PLATE = new Image();
+SPACE_PLATE.src = './assets/space-arena-v1.png';
 try{ ctx.direction='rtl'; }catch(e){}
 
 window.onerror = function(msg, srcUrl, line){
@@ -1828,6 +1830,13 @@ function drawStudioRig(t){
 }
 /* --------------------------- the keyed worlds --------------------------- */
 function drawSpace(t){
+  if(SPACE_PLATE.complete && SPACE_PLATE.naturalWidth){
+    ctx.drawImage(SPACE_PLATE,0,0,W,FLOOR);
+    const glow=ctx.createLinearGradient(0,0,W,FLOOR);
+    glow.addColorStop(0,'rgba(67,220,255,.08)'); glow.addColorStop(.55,'rgba(0,0,0,0)'); glow.addColorStop(1,'rgba(255,153,70,.12)');
+    ctx.fillStyle=glow; ctx.fillRect(0,0,W,FLOOR);
+    return;
+  }
   ctx.fillStyle='#05060f'; ctx.fillRect(0,0,W,FLOOR);
   for(let i=0;i<130;i++){
     const x=(i*137.5)%W, y=(i*79.3)%FLOOR, tw=0.4+0.6*Math.abs(Math.sin(t/700+i));
