@@ -117,6 +117,8 @@ const STUDIO_PLATE = new Image();
 STUDIO_PLATE.src = './assets/studio-arena-v1.png';
 const SPACE_PLATE = new Image();
 SPACE_PLATE.src = './assets/space-arena-v1.png';
+const BARBIE_PLATE = new Image();
+BARBIE_PLATE.src = './assets/barbie-arena-v1.png';
 try{ ctx.direction='rtl'; }catch(e){}
 
 window.onerror = function(msg, srcUrl, line){
@@ -1911,6 +1913,14 @@ function drawShip(t){
   ctx.closePath(); ctx.fill();
 }
 function drawBarbie(t){
+  if(BARBIE_PLATE.complete && BARBIE_PLATE.naturalWidth){
+    ctx.drawImage(BARBIE_PLATE,0,0,W,FLOOR);
+    for(let i=0;i<16;i++){
+      const x=(i*167+41)%W, y=70+((i*83)%390), s=8+4*Math.sin(t/420+i);
+      ctx.fillStyle='rgba(255,255,255,.42)'; ctx.beginPath(); ctx.arc(x,y,s,0,7); ctx.fill();
+    }
+    return;
+  }
   const sky=ctx.createLinearGradient(0,0,0,FLOOR);
   sky.addColorStop(0,'#ffd7e9'); sky.addColorStop(1,'#ffb0d4');
   ctx.fillStyle=sky; ctx.fillRect(0,0,W,FLOOR);
