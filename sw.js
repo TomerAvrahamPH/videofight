@@ -1,4 +1,4 @@
-const VERSION='video-fight-2026.09.01.4';
+const VERSION='video-fight-2026.09.01.5';
 const CORE=['./','./index.html','./peer.min.js','./manifest.webmanifest','./icon.svg',
   './assets/studio-arena-v1.png','./assets/space-arena-v1.png','./assets/barbie-arena-v1.png',
   './assets/nina-charge-v1.png','./assets/fighters/guy-idle-v1.png','./assets/fighters/tomer-idle-v1.png'];

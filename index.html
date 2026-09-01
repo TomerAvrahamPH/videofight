@@ -132,7 +132,7 @@
 
 <script>
 'use strict';
-window.VIDEO_FIGHT_VERSION='2026.09.01.4';
+window.VIDEO_FIGHT_VERSION='2026.09.01.5';
 /* =========================================================================
    VIDEO FIGHT · וידאו פייט  —  the Sun Video crew beats each other up
    ========================================================================= */
@@ -191,7 +191,7 @@ window.onerror = function(msg, srcUrl, line){
   }catch(e){}
 };
 
-const GAME_VERSION='2.1';
+const GAME_VERSION='2.1.1';
 const clamp=(v,a,b)=>v<a?a:v>b?b:v;
 const lerp=(a,b,t)=>a+(b-a)*t;
 const ease=(t)=>t<0?0:t>1?1:t*t*(3-2*t);
@@ -334,6 +334,17 @@ function buildHead(id){
 
 /* ============================ audio engine ============================== */
 let AC=null, muted=false, masterGain=null, sfxGain=null, musicGain=null;
+let audioUnlocked=false, audioError='', audioTrack='';
+function syncAudioDebug(){
+  const root=document.documentElement;
+  if(!root) return;
+  root.dataset.vfAudio=AC?AC.state:'none';
+  root.dataset.vfAudioUnlocked=String(audioUnlocked);
+  root.dataset.vfAudioMuted=String(muted);
+  root.dataset.vfAudioMusic=audioTrack;
+  root.dataset.vfAudioError=audioError;
+}
+syncAudioDebug();
 function audio(){
   if(!AC){
     try{
@@ -342,10 +353,31 @@ function audio(){
       masterGain.connect(AC.destination);
       sfxGain = AC.createGain(); sfxGain.gain.value=1.0; sfxGain.connect(masterGain);
       musicGain = AC.createGain(); musicGain.gain.value=0.42; musicGain.connect(masterGain);
-    }catch(e){ AC=null; }
+      AC.onstatechange=()=>{ audioUnlocked=AC.state==='running'; syncAudioDebug(); };
+    }catch(e){ audioError=String(e&&e.message||e); AC=null; syncAudioDebug(); }
   }
-  if(AC && AC.state==='suspended') AC.resume();
+  if(AC && AC.state==='running') audioUnlocked=true;
+  syncAudioDebug();
   return AC;
+}
+function unlockAudio(){
+  const ac=audio();
+  if(!ac) return Promise.resolve(false);
+  try{
+    const src=ac.createBufferSource();
+    src.buffer=ac.createBuffer(1,1,ac.sampleRate);
+    src.connect(masterGain); src.start(0);
+  }catch(e){}
+  const resumed=ac.state==='running' ? Promise.resolve() : ac.resume();
+  return Promise.resolve(resumed).then(()=>{
+    audioUnlocked=ac.state==='running'; audioError='';
+    if(audioUnlocked && MUSIC.name) MUSIC.nextT=ac.currentTime+0.08;
+    if(audioUnlocked && typeof state!=='undefined' && ['TITLE','MODE','DIFF','STAGE','SELECT'].includes(state)){
+      if(typeof MUSIC!=='undefined' && (!MUSIC.timer||!MUSIC.name)) musicPlay('menu');
+    }
+    syncAudioDebug();
+    return audioUnlocked;
+  }).catch(e=>{ audioError=String(e&&e.message||e); syncAudioDebug(); return false; });
 }
 function env(g,t0,a,peak,d){
   g.gain.setValueAtTime(0.0001,t0);
@@ -506,11 +538,13 @@ function musicPlay(name){
   musicStop();
   if(!TRACKS[name]) return;
   MUSIC.name=name; MUSIC.step=0; MUSIC.nextT=ac.currentTime+0.08;
+  audioTrack=name; syncAudioDebug();
   MUSIC.timer=setInterval(musicTick, 25);
 }
 function musicStop(){
   if(MUSIC.timer){ clearInterval(MUSIC.timer); MUSIC.timer=null; }
   MUSIC.name=null;
+  audioTrack=''; syncAudioDebug();
 }
 function musicTick(){
   const ac=AC; if(!ac||!MUSIC.name) return;
@@ -1322,7 +1356,7 @@ const P2KEYS={left:'ArrowLeft',right:'ArrowRight',up:'ArrowUp',down:'ArrowDown',
 addEventListener('keydown', e=>{
   if(editorOpen) return;
   if(['ArrowLeft','ArrowRight','ArrowUp','ArrowDown','Space','Quote'].includes(e.code)) e.preventDefault();
-  audio();
+  unlockAudio();
   if(!e.repeat) onKeyPress(e.code);
   keys[e.code]=true;
 });
@@ -1388,12 +1422,14 @@ function goFullscreen(){
 }
 cv.addEventListener('contextmenu',e=>e.preventDefault());
 cv.addEventListener('pointerdown',e=>{
-  e.preventDefault(); audio(); goFullscreen();
+  e.preventDefault(); unlockAudio(); goFullscreen();
   if(editorOpen) return;
   handleTap(canvasPos(e), e.pointerId);
 });
 addEventListener('pointerup',e=>releasePtr(e.pointerId));
 addEventListener('pointercancel',e=>releasePtr(e.pointerId));
+addEventListener('touchend',()=>unlockAudio(),{passive:true});
+addEventListener('visibilitychange',()=>{ if(!document.hidden) unlockAudio(); });
 function releasePtr(id){
   const b=ptrHeld.get(id);
   if(b){ keys[b.code]=false; ptrHeld.delete(id); }
@@ -1459,7 +1495,7 @@ function handleTap(p,id){
   if(state==='FIGHT'){
     if(paused){ paused=false; return; }
     if(inRect(p,PAUSE_BTN)){ paused=true; return; }
-    if(inRect(p,MUTE_BTN)){ muted=!muted; return; }
+    if(inRect(p,MUTE_BTN)){ muted=!muted; syncAudioDebug(); return; }
     if(TOUCH){
       for(const b of padBtns){
         if(b.tag==='super' && !superReady(fighters[b.slot])) continue;
@@ -1488,7 +1524,7 @@ function onKeyPress(code){
     if(code==='Escape'||code==='Backspace'){ closeNetUI(); netTeardown(false); setState('MODE'); sfx('select'); }
     return;
   }
-  if(code==='KeyM'){ muted=!muted; return; }
+  if(code==='KeyM'){ muted=!muted; syncAudioDebug(); return; }
   if(code==='KeyP'&&state==='FIGHT'){ if(NET.on){ fx.push({t:'text',x:W/2,y:200,txt:'אין הפסקות אונליין',col:'#fff',size:26,life:40}); return; } paused=!paused; return; }
   if(state==='TITLE'){ setState('MODE'); sfx('confirm'); return; }
   if(state==='MODE'){
@@ -4482,6 +4518,8 @@ if(TOUCH) modeSel=0;
 window.__vf = {
   get state(){return state;}, get fighters(){return fighters;},
   get projectiles(){return projectiles;}, get fx(){return fx;},
+  get audioState(){return {exists:!!AC,state:AC?AC.state:'none',unlocked:audioUnlocked,error:audioError,muted,MUSIC:MUSIC.name};},
+  unlockAudio,
   setState, ROSTER, charData, keys, onKeyPress, STAGE_LIST,
   startMove:(slot,key)=>startMove(fighters[slot],key),
   forcePick(a,b,stage,m){ mode=m||'2P'; if(stage!==undefined) stageSel=stage;
