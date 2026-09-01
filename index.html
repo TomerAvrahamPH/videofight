@@ -10,6 +10,9 @@
 <link rel="manifest" href="./manifest.webmanifest">
 <link rel="icon" href="./icon.svg" type="image/svg+xml">
 <title>וידאו פייט</title>
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" type="image/png" href="icon-192.png">
+<link rel="apple-touch-icon" href="icon-180.png">
 <style>
   html,body{margin:0;padding:0;background:#07070d;height:100%;overflow:hidden;
     font-family:-apple-system,"Segoe UI",Arial,sans-serif;
@@ -809,6 +812,11 @@ function drawBodyArt(g, f, p, art){
   g.restore();
   g.restore();
 
+  // approximate anchors so held props (boom mic, nunchaku) keep working
+  f._hands={ front:[BODY_H*0.30, -BODY_H*0.55], back:[-BODY_H*0.16, -BODY_H*0.52],
+             chest:[0,-BODY_H*0.62], pel:[0,-BODY_H*0.35],
+             sho:[BODY_H*0.10,-BODY_H*0.66], foot:[BODY_H*0.12,-6] };
+
   // strike smear at the business end of an attack (local +x = forward)
   if(active && m.kind==='attack' && m.reach>0){
     const R=(36+m.reach*RSC*0.85), cy=-BODY_H*0.52+m.hy*HSC*0.22;
@@ -1481,8 +1489,11 @@ function handleTap(p,id){
   }
   if(state==='SELECT'){
     if(stateT<300) return;
-    if(inRect(p,ED_BTN)){ openEditor(); return; }
-    if(inRect(p,R_BACK)){ setState('STAGE'); sfx('select'); return; }
+    if(inRect(p,ED_BTN)&&!(mode==='NET'&&netPre)){ openEditor(); return; }
+    if(inRect(p,R_BACK)){
+      if(mode==='NET'&&netPre){ netPre=false; NET.myPick=null; setState('MODE'); }
+      else setState('STAGE');
+      sfx('select'); return; }
     const G=SEL_GRID;
     for(let i=0;i<ROSTER.length;i++){
       const col=i%G.cols, row=Math.floor(i/G.cols);
@@ -1561,6 +1572,7 @@ function onKeyPress(code){
     return;
   }
   if(state==='SELECT'){
+    if(code==='Escape'&&mode==='NET'&&netPre){ netPre=false; NET.myPick=null; setState('MODE'); sfx('select'); return; }
     if(code==='KeyE'&&mode!=='NET'){ openEditor(); return; }
     for(const [slot,Kdef] of [[0,P1KEYS],[1,P2KEYS]]){
       if(mode==='1P'&&slot===1) continue;
@@ -3273,6 +3285,7 @@ function startMatch(){
   setTimeout(()=>{ if(state==='VS') say(b,'taunt',charLine(b,'intro')); },1400);
 }
 function startRound(){
+  koPair=null;
   fighters=[ makeFighter(picked[0], 400, 0), makeFighter(picked[1], 880, 1) ];
   if(mode==='1P') fighters[1].isCPU=true;
   projectiles=[]; fx=[]; roundTimer=99; freeze=0; slowmo=0;
@@ -3367,7 +3380,7 @@ function fightStep(){
     const [f0,f1]=fighters;
     const winner=f0.hp===f1.hp?null:(f0.hp>f1.hp?f0:f1);
     if(winner) startKO(fighters[1-winner.slot],winner);
-    else { wins[0]++; wins[1]++; setState('ROUND_END'); }
+    else { wins[0]++; wins[1]++; koPair=null; setState('ROUND_END'); }
   }
 }
 function update(){
@@ -4238,6 +4251,12 @@ function netPump(){
     netSend({t:'i',f:sendF,b});
   }
   NET.targetF++;
+  if(NET.frame>0 && NET.frame%300===0){          // prune old input history
+    const cut=NET.frame-260;
+    for(const k in NET.localHist) if(+k<cut) delete NET.localHist[k];
+    for(const arr of NET.inputs)
+      for(let i=cut; i>=0 && arr[i]!==undefined; i--) delete arr[i];
+  }
   let steps=0;
   while(steps<3 && NET.frame<NET.targetF){
     const rSlot=NET.mySlot===0?1:0;
