@@ -156,6 +156,19 @@ NINA_SPRITE.src = './assets/nina-charge-v1.png';
    naming: assets/fighters/<name>-idle-v1.png  · transparent bg · headless,
    neck opening at the top · full body incl. feet                           */
 const FIGHTER_ART={};
+/* High-detail game sprites rendered from the new 3D fighter work. They are
+   deliberately independent files (rather than embedded in the main HTML), so
+   GitHub Pages can cache them efficiently and a failed load falls back safely. */
+const FIGHTER_SPRITES={};
+const SPRITE_META={
+  3:{nf:-1, ax:0.50, ay:0.00, gy:0.98, hs:1, fullBody:true, files:{
+    idle:'aviv-3d-idle.png', punch:'aviv-3d-punch.png', kick:'aviv-3d-kick.png',
+    nina:'aviv-3d-special-nina.png', hurt:'aviv-3d-hurt.png', ko:'aviv-3d-ko.png',
+    air:'aviv-3d-air.png'}},
+  5:{nf:1, ax:0.50, ay:0.00, gy:0.98, hs:1, fullBody:true, files:{
+    idle:'tomer-3d-idle.png', boom:'tomer-3d-boom.png', kick:'tomer-3d-kick.png',
+    guard:'tomer-3d-guard.png'}}
+};
 const ART_META={
   1:{file:'guy-idle-v1.png',   nf:1,  ax:0.485, ay:0.052, gy:0.975, hs:1.08},
   2:{file:'eli-idle-v1.png',   nf:-1, ax:0.510, ay:0.110, gy:0.963, hs:1.08},
@@ -169,7 +182,27 @@ for(const id in ART_META){
   img.src='./assets/fighters/'+m.file;
   FIGHTER_ART[id]=Object.assign({img},m);
 }
+for(const id in SPRITE_META){
+  const s=SPRITE_META[id], poses={};
+  for(const key in s.files){ const img=new Image(); img.src='./assets/fighters/3d/'+s.files[key]; poses[key]=img; }
+  FIGHTER_SPRITES[id]=Object.assign({poses},s);
+}
+function spritePose(f){
+  const s=FIGHTER_SPRITES[f.char.id]; if(!s) return null;
+  let key='idle', m=f.move&&f.move.key;
+  if(f.anim==='ko'||f.anim==='down') key='ko';
+  else if(f.hitstun>0||f.anim==='hurt'||f.anim==='hurtLow') key='hurt';
+  else if(!f.onGround||f.anim==='jump') key='air';
+  else if(f.blocking||f.anim==='block') key='guard';
+  else if(m){
+    if(f.char.id===3) key=m==='sp2'?'nina':(m==='sp1'||m==='lk'||m==='hk'?'kick':m==='ja'?'air':'punch');
+    if(f.char.id===5) key=m==='sp1'||m==='sp2'?'boom':(m==='lk'||m==='hk'||m==='ja'?'kick':'guard');
+  }
+  const img=s.poses[key]||s.poses.idle;
+  return img&&img.complete&&img.naturalWidth ? Object.assign({img,pose:key},s) : null;
+}
 function artOf(f){
+  const sprite=spritePose(f); if(sprite) return sprite;
   const a=FIGHTER_ART[f.char.id];
   return (a && a.img.complete && a.img.naturalWidth) ? a : null;
 }
@@ -808,14 +841,17 @@ function drawBodyArt(g, f, p, art){
   g.fillRect(-iw*sc*art.ax, -ih*sc*art.gy, iw*sc, ih*sc);
   g.restore();
 
-  // the photo head, seated on the art's neck anchor (x=0 is the anchor column)
-  const neckY=-ih*sc*art.gy + ih*sc*art.ay;
-  g.save();
-  g.translate(0, neckY);
-  if(art.nf===-1) g.scale(-1,1);       // cancel the art mirror for the face
-  g.rotate((-p.lean*0.5-p.head)*Math.PI/180);
-  drawHeadSplit(g, f, 0.33*art.hs);
-  g.restore();
+  // Legacy painted bodies keep the photo-head gag. The new 3D fighter sprites
+  // already contain their modeled heads, hair, headphones and facial detail.
+  if(!art.fullBody){
+    const neckY=-ih*sc*art.gy + ih*sc*art.ay;
+    g.save();
+    g.translate(0, neckY);
+    if(art.nf===-1) g.scale(-1,1);       // cancel the art mirror for the face
+    g.rotate((-p.lean*0.5-p.head)*Math.PI/180);
+    drawHeadSplit(g, f, 0.33*art.hs);
+    g.restore();
+  }
   g.restore();
 
   // approximate anchors so held props (boom mic, nunchaku) keep working

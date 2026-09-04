@@ -1,24 +1,26 @@
-const C='vf-1788297058';
-const CORE=['./','./index.html','./manifest.webmanifest','./icon-192.png','./icon-512.png','./icon-180.png','./peer.min.js'];
-self.addEventListener('install',e=>{ self.skipWaiting();
-  e.waitUntil(caches.open(C).then(c=>c.addAll(CORE)));});
-self.addEventListener('activate',e=>{ e.waitUntil(
-  caches.keys().then(ks=>Promise.all(ks.filter(k=>k!==C).map(k=>caches.delete(k))))
-    .then(()=>self.clients.claim()));});
-self.addEventListener('fetch',e=>{
-  if(e.request.method!=='GET') return;
-  const isDoc = e.request.mode==='navigate' ||
-    (e.request.destination==='document') ||
-    /\/(index\.html)?(\?.*)?$/.test(new URL(e.request.url).pathname);
-  if(isDoc){
-    // network-first: players always get the newest build when online
-    e.respondWith(fetch(e.request).then(res=>{
-      const cp=res.clone(); caches.open(C).then(c=>c.put('./index.html',cp)); return res;
+const VERSION='video-fight-2026.09.04.3d-fighters';
+const CORE=['./','./index.html','./peer.min.js','./manifest.webmanifest','./icon.svg',
+  './assets/studio-arena-v1.png','./assets/space-arena-v1.png','./assets/barbie-arena-v1.png',
+  './assets/nina-charge-v1.png','./assets/fighters/guy-idle-v1.png','./assets/fighters/tomer-idle-v1.png',
+  './assets/fighters/3d/aviv-3d-idle.png','./assets/fighters/3d/aviv-3d-punch.png',
+  './assets/fighters/3d/aviv-3d-kick.png','./assets/fighters/3d/aviv-3d-special-nina.png',
+  './assets/fighters/3d/aviv-3d-hurt.png','./assets/fighters/3d/aviv-3d-ko.png',
+  './assets/fighters/3d/aviv-3d-air.png','./assets/fighters/3d/tomer-3d-idle.png',
+  './assets/fighters/3d/tomer-3d-boom.png','./assets/fighters/3d/tomer-3d-kick.png',
+  './assets/fighters/3d/tomer-3d-guard.png'];
+self.addEventListener('install', event=>event.waitUntil(caches.open(VERSION).then(cache=>cache.addAll(CORE)).then(()=>self.skipWaiting())));
+self.addEventListener('activate', event=>event.waitUntil(caches.keys().then(keys=>Promise.all(keys.filter(key=>key.startsWith('video-fight-')&&key!==VERSION).map(key=>caches.delete(key)))).then(()=>self.clients.claim())));
+self.addEventListener('fetch', event=>{
+  if(event.request.method!=='GET') return;
+  const url=new URL(event.request.url);
+  if(url.origin!==location.origin) return;
+  if(event.request.mode==='navigate'){
+    event.respondWith(fetch(event.request).then(response=>{
+      const copy=response.clone(); caches.open(VERSION).then(cache=>cache.put('./index.html',copy)); return response;
     }).catch(()=>caches.match('./index.html')));
     return;
   }
-  e.respondWith(caches.match(e.request,{ignoreSearch:true}).then(r=>r||
-    fetch(e.request).then(res=>{ const cp=res.clone();
-      caches.open(C).then(c=>c.put(e.request,cp)); return res; })
-    .catch(()=>caches.match('./index.html'))));
+  event.respondWith(caches.match(event.request,{ignoreSearch:true}).then(hit=>hit||fetch(event.request).then(response=>{
+    const copy=response.clone(); caches.open(VERSION).then(cache=>cache.put(event.request,copy)); return response;
+  }).catch(()=>caches.match('./index.html'))));
 });
