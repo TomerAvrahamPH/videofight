@@ -4634,14 +4634,16 @@ requestAnimationFrame(frame);
     new THREE.GLTFLoader().load(url,(gltf)=>{
       holder.add(gltf.scene);
       const raw=new THREE.Box3().setFromObject(gltf.scene), size=raw.getSize(new THREE.Vector3());
-      const scale=300/Math.max(size.y,0.001);
+      // Match the Arcade silhouette, not a technical meter scale: the models
+      // should command the same frame as the original fighters.
+      const scale=485/Math.max(size.y,0.001);
       holder.scale.setScalar(scale);
       rigs[id]={holder,mixer:new THREE.AnimationMixer(gltf.scene),actions:{},prefix,baseY:raw.min.y*scale,ready:true,current:''};
       gltf.animations.forEach(clip=>{ rigs[id].actions[clip.name]=rigs[id].mixer.clipAction(clip); });
       canvas.dataset['fighter'+id]='ready';
     },undefined,err=>{ console.warn('3D fighter failed to load',id,err); });
   }
-  load(5,'./assets/3d/tomer-v005.glb','TOMER_');
+  load(5,'./assets/3d/tomer-dobok-v005.glb','TOMER_');
   load(3,'./assets/3d/aviv-v004.glb','AVIV_');
   function desired(f,r){
     let n='Idle'; const m=f.move&&f.move.key;
