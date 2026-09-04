@@ -19,6 +19,8 @@
   canvas#game{background:#000;max-width:100vw;max-height:100vh;max-height:100dvh;
     aspect-ratio:16/9;touch-action:none;
     box-shadow:0 0 90px rgba(255,60,120,.22);border-radius:6px;}
+  /* Transparent WebGL layer for the real animated GLB fighters. */
+  canvas#fighters3d{position:fixed;pointer-events:none;z-index:2;display:none;}
   /* ---------- character editor ---------- */
   #editor{position:fixed;inset:0;background:rgba(8,8,14,.93);z-index:20;display:none;
     color:#eee;direction:rtl;}
@@ -68,7 +70,7 @@
 </style>
 </head>
 <body>
-<div id="wrap"><canvas id="game" width="1280" height="720"></canvas></div>
+<div id="wrap"><canvas id="game" width="1280" height="720"></canvas><canvas id="fighters3d"></canvas></div>
 
 <div id="editor">
   <div id="edPanel">
@@ -129,6 +131,9 @@
 </div>
 <input type="file" id="fileInput" accept="image/*" hidden>
 <input type="file" id="importInput" accept="application/json" hidden>
+
+<script src="./vendor/three.min.js"></script>
+<script src="./vendor/GLTFLoader.js"></script>
 
 <script>
 'use strict';
@@ -2824,8 +2829,9 @@ function drawFighter(f){
     ctx.translate(0,-40); ctx.rotate(Math.min(Math.PI/2, f.animT*0.09));
     ctx.translate(0,40);
   }
-  drawBody(ctx,f,p);
-  drawProps(ctx,f,p);
+  // Once a real GLB fighter is ready, the transparent WebGL layer owns the
+  // body and its animated equipment. Keep Canvas as an automatic fallback.
+  if(!(window.VF3D&&window.VF3D.owns(f))){ drawBody(ctx,f,p); drawProps(ctx,f,p); }
   ctx.restore();
 
   // stars when dizzy
@@ -3899,6 +3905,7 @@ function previewFighter(id, x, y, scale, anim, animT){
 
 /* ============================== RENDER ================================== */
 function render(){
+  if(window.VF3D) window.VF3D.sync([],false);
   ctx.setTransform(1,0,0,1,0,0);
   ctx.clearRect(0,0,W,H);
   ctx.save();
@@ -3968,6 +3975,7 @@ function render(){
     if(artOf(superGuy)||true){ drawFighter(superGuy); }   // re-draw the star on top
   }
   ctx.restore();
+  if(window.VF3D) window.VF3D.sync(fighters,inMatch);
   // vignette (screen space)
   const vg=ctx.createRadialGradient(W/2,H/2,H*0.46,W/2,H/2,H*0.85);
   vg.addColorStop(0,'rgba(0,0,0,0)'); vg.addColorStop(1,'rgba(0,0,0,.34)');
@@ -4602,6 +4610,83 @@ window.__vf = {
   tick(n){ for(let i=0;i<(n||1);i++) update(); render(); return state; },
 };
 requestAnimationFrame(frame);
+/* ======================= live GLB fighter layer ========================
+   Real Blender/Unreal-ready models, rendered transparently over the Canvas
+   match. The Canvas combat simulation remains authoritative; this layer only
+   replaces the visual body for fighters that have completed loading.          */
+(function(){
+  const canvas=document.getElementById('fighters3d');
+  if(canvas) canvas.dataset.vf3d='boot';
+  if(typeof THREE==='undefined' || !THREE.GLTFLoader || !canvas){ window.VF3D={owns:()=>false,sync:()=>{}}; return; }
+  const renderer=new THREE.WebGLRenderer({canvas,alpha:true,antialias:true,premultipliedAlpha:false});
+  renderer.setPixelRatio(Math.min(devicePixelRatio||1,1.5));
+  renderer.setClearColor(0x000000,0);
+  renderer.outputEncoding=THREE.sRGBEncoding;
+  const scene=new THREE.Scene();
+  const camera=new THREE.OrthographicCamera(-W/2,W/2,H/2,-H/2,1,2000);
+  camera.position.set(0,0,900); camera.lookAt(0,0,0);
+  scene.add(new THREE.HemisphereLight(0xdcecff,0x251a32,2.1));
+  const key=new THREE.DirectionalLight(0xffe4c3,2.8); key.position.set(-220,420,650); scene.add(key);
+  const rim=new THREE.DirectionalLight(0x78aaff,1.6); rim.position.set(300,100,500); scene.add(rim);
+  const rigs={}; let last=performance.now(); let lastRect='';
+  function load(id,url,prefix){
+    const holder=new THREE.Group(); holder.visible=false; scene.add(holder);
+    new THREE.GLTFLoader().load(url,(gltf)=>{
+      holder.add(gltf.scene);
+      const raw=new THREE.Box3().setFromObject(gltf.scene), size=raw.getSize(new THREE.Vector3());
+      const scale=300/Math.max(size.y,0.001);
+      holder.scale.setScalar(scale);
+      rigs[id]={holder,mixer:new THREE.AnimationMixer(gltf.scene),actions:{},prefix,baseY:raw.min.y*scale,ready:true,current:''};
+      gltf.animations.forEach(clip=>{ rigs[id].actions[clip.name]=rigs[id].mixer.clipAction(clip); });
+      canvas.dataset['fighter'+id]='ready';
+    },undefined,err=>{ console.warn('3D fighter failed to load',id,err); });
+  }
+  load(5,'./assets/3d/tomer-v005.glb','TOMER_');
+  load(3,'./assets/3d/aviv-v004.glb','AVIV_');
+  function desired(f,r){
+    let n='Idle'; const m=f.move&&f.move.key;
+    if(f.anim==='ko'||f.anim==='down') n='Knockdown_KO';
+    else if(f.hitstun>0||f.anim==='hurt'||f.anim==='hurtLow') n='Hit_React';
+    else if(!f.onGround||f.anim==='jump') n='Jump';
+    else if(f.blocking||f.anim==='block') n='Block';
+    else if(m){
+      if(m==='sp1') n=f.char.id===5?'Boom_Special':'Roundhouse_Head_Kick';
+      else if(m==='sp2') n=f.char.id===3?'Nina_Call':'Boom_Special';
+      else if(m==='lp'||m==='hp') n=m==='hp'?'Heavy_Punch':'Light_Punch';
+      else if(m==='lk'||m==='hk'||m==='ja') n=m==='hk'?'Roundhouse_Head_Kick':'Front_Kick';
+    } else if(Math.abs(f.vx)>0.55) n=f.vx*f.facing>0?'Walk_Forward':'Walk_Back';
+    return r.prefix+n;
+  }
+  function switchAction(r,name){
+    if(r.current===name) return;
+    const next=r.actions[name]||r.actions[r.prefix+'Idle']||Object.values(r.actions)[0]; if(!next) return;
+    const prev=r.actions[r.current];
+    next.reset().setLoop(THREE.LoopRepeat,Infinity).play();
+    if(prev&&prev!==next) prev.crossFadeTo(next,0.10,false);
+    r.current=name;
+  }
+  function resize(){
+    const rect=cv.getBoundingClientRect(), sig=[rect.left,rect.top,rect.width,rect.height].join(',');
+    if(sig===lastRect) return; lastRect=sig;
+    canvas.style.display='block'; canvas.style.left=rect.left+'px'; canvas.style.top=rect.top+'px';
+    canvas.style.width=rect.width+'px'; canvas.style.height=rect.height+'px';
+    renderer.setSize(W,H,false); camera.updateProjectionMatrix();
+  }
+  function owns(f){ const r=rigs[f&&f.char&&f.char.id]; return !!(r&&r.ready); }
+  function sync(fs,active){
+    resize(); const dt=Math.min(.05,(performance.now()-last)/1000); last=performance.now();
+    let show=false;
+    for(const f of fs||[]){ if(!f) continue; const r=rigs[f.char.id]; if(!r||!r.ready) continue;
+      const live=!!active; r.holder.visible=live; if(!live) continue; show=true;
+      const sx=W/2+(f.x-camX)*camZoom, sy=H/2+(f.y-camY)*camZoom;
+      r.holder.position.set(sx-W/2,H/2-sy-r.baseY,0);
+      r.holder.rotation.set(0,f.facing>0?0:Math.PI,0);
+      switchAction(r,desired(f,r)); r.mixer.update(dt);
+    }
+    if(show) renderer.render(scene,camera); else renderer.clear();
+  }
+  window.VF3D={owns,sync};
+})();
 
 </script>
 </body>
